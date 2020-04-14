@@ -1,0 +1,56 @@
+#Assignment 3
+library(Matching)
+#Question 1
+#import data
+foo <- read.csv(url("https://course-resources.minerva.kgi.edu/uploaded_files/mke/00089202-1711/daughters.csv"))
+
+# regression
+reg1 <- lm(nowtot~ Dems + Repubs +Christian + age+ srvlng+ demvote + hasgirls, data = foo )
+
+summary(reg1)
+confint(reg1)
+
+#genetic matching
+library(rgenoud)
+genout <- GenMatch(Tr = foo$hasgirls , X = cbind(foo$Dems, foo$Repubs, foo$Christian, foo$age, foo$srvlng, foo$demvote), pop.size = 20 , nboots = 250, unif.seed = 123, int.seed = 92485)
+
+mout <- Match(Tr = foo$hasgirls, X = cbind(foo$Dems, foo$Repubs, foo$Christian, foo$age, foo$srvlng, foo$demvote), Weight.matrix = genout)
+
+MatchBalance(hasgirls ~ Dems + Repubs + Christian + age + srvlng + demvote, data = foo, match.out = mout )
+summary(mout)
+
+mout <- Match(Y=foo$nowtot,Tr = foo$hasgirls, X = cbind(foo$Dems, foo$Repubs, foo$Christian, foo$age, foo$srvlng, foo$demvote), Weight.matrix = genout)
+summary(mout)
+
+#Part B
+# Redefining the treatment 
+foo2.treat <- foo[foo$ngirls >= 2 & foo$hasboys == 0, ]
+foo2.control <- foo[foo$nboys >= 2 & foo$hasgirls == 0, ]
+foo2 <- rbind(foo2.treat,foo2.control)
+
+# Linear Regression 
+lm2 <- lm(foo2$nowtot ~ foo2$Dems + foo2$Repubs + foo2$Christian + foo2$age + foo2$srvlng + foo2$demvote + foo2$hasgirls, data=foo2)
+
+#get new summary statistics and confidence interval
+summary(lm2)
+confint(lm2)
+
+# Balance
+X <- cbind(foo2$Dems, foo2$Repubs, foo2$Christian, foo2$age, foo2$srvlng, foo2$demvote)
+
+mout <- Match(Tr = foo2$hasgirls, X = X)
+summary(mout)
+
+set.seed(1122020)
+mb <- MatchBalance(foo2$hasgirls ~ foo2$Dems + foo2$Repubs + foo2$Christian +  foo2$age + foo2$srvlng + foo2$demvote, nboots = 1000,data = foo2)
+
+
+# Gen Match
+genout <- GenMatch(X=X,Tr=foo2$hasgirls, unif.seed = 123, int.seed = 92485, pop.size = 20,print.level = 1,nboots=250,wait.generations = 5)
+
+mout <- Match(Y=foo2$nowtot,X=X, Tr=foo2$hasgirls, Weight.matrix = genout)
+summary(mout)
+
+# Checking the balance for the matched dataset 
+set.seed(1122020)
+mb <- MatchBalance(hasgirls ~ Dems + Repubs + Christian +  age + srvlng + demvote,data=foo2,match.out = mout)
